@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定存存單管理系統</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #ffffff; --bg-secondary: #f5f5f3; --bg-tertiary: #eeede8;
+    --text-primary: #1a1a18; --text-secondary: #5f5e5a; --text-tertiary: #888780;
+    --border-light: rgba(0,0,0,0.12); --border-mid: rgba(0,0,0,0.22);
+    --radius-md: 8px; --radius-lg: 12px;
+    --accent: #185FA5; --accent-dark: #0C447C;
+    --green: #1D9E75; --green-dark: #0F6E56;
+    --amber: #854F0B; --red: #A32D2D;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c; --bg-secondary: #2a2a28; --bg-tertiary: #333330;
+      --text-primary: #f0efea; --text-secondary: #b4b2a9; --text-tertiary: #888780;
+      --border-light: rgba(255,255,255,0.12); --border-mid: rgba(255,255,255,0.22);
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background: var(--bg-tertiary); color: var(--text-primary); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+  .page-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .app-title { font-size: 20px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+  .app-title i { color: var(--accent); font-size: 22px; }
+  .app-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+  .user-area { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .user-tab { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border-mid); font-size: 13px; cursor: pointer; background: var(--bg-primary); color: var(--text-secondary); transition: all .15s; font-family: inherit; }
+  .user-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .user-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .user-tab-add { padding: 5px 10px; border-radius: 20px; border: 1px dashed var(--border-mid); font-size: 13px; cursor: pointer; background: transparent; color: var(--text-tertiary); font-family: inherit; }
+  .user-tab-add:hover { color: var(--accent); border-color: var(--accent); }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: var(--bg-primary); border-radius: var(--radius-md); padding: 14px 16px; border: 1px solid var(--border-light); }
+  .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .stat-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+
+  .section-tabs { display: flex; border-bottom: 1px solid var(--border-light); margin-bottom: 20px; flex-wrap: wrap; }
+  .section-tab { padding: 9px 18px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; transition: color .15s; }
+  .section-tab:hover { color: var(--accent); }
+  .section-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+  .form-card { background: var(--bg-primary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  input, select { width: 100%; padding: 8px 11px; border: 1px solid var(--border-mid); border-radius: var(--radius-md); font-size: 14px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(24,95,165,.15); }
+
+  .btn-primary { padding: 9px 20px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-export { padding: 9px 18px; background: var(--green); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+  .btn-export:hover { background: var(--green-dark); }
+  .btn-export:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-ghost { padding: 8px 16px; background: transparent; border: 1px solid var(--border-mid); border-radius: var(--radius-md); font-size: 14px; cursor: pointer; color: var(--text-primary); font-family: inherit; }
+  .btn-ghost:hover { background: var(--bg-secondary); }
+
+  .filter-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .filter-row select, .filter-row input[type=text] { width: auto; min-width: 110px; }
+
+  .table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border-light); background: var(--bg-primary); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--bg-secondary); }
+  th { text-align: left; padding: 10px 11px; font-size: 11.5px; font-weight: 500; color: var(--text-secondary); border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+  td { padding: 9px 11px; border-bottom: 1px solid var(--border-light); color: var(--text-primary); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg-secondary); }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .badge-ok   { background: #EAF3DE; color: #3B6D11; }
+  .badge-soon { background: #FAEEDA; color: #854F0B; }
+  .badge-exp  { background: #FCEBEB; color: #A32D2D; }
+
+  .del-btn { background: none; border: none; cursor: pointer; color: var(--text-tertiary); font-size: 16px; padding: 3px 7px; border-radius: 6px; transition: all .15s; }
+  .del-btn:hover { color: var(--red); background: #FCEBEB; }
+  .empty { text-align: center; padding: 2.5rem; color: var(--text-tertiary); font-size: 14px; }
+
+  /* 作業進度 */
+  .prog-cell { display: flex; gap: 5px; flex-wrap: wrap; }
+  .prog-item { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; cursor: pointer; white-space: nowrap; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--border-mid); transition: all .15s; user-select: none; font-family: inherit; }
+  .prog-item.done   { background: #EAF3DE; color: #3B6D11; border-color: #b3d98a; }
+  .prog-item.undone { background: var(--bg-secondary); color: var(--text-tertiary); }
+  .prog-item:hover  { border-color: var(--accent); }
+
+  .chart-box { background: var(--bg-primary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
+  .chart-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 10px; }
+
+  .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; font-size: 14px; }
+  label.opt { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  label.opt input { width: auto; padding: 0; border: none; box-shadow: none; }
+
+  .info-box { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 12px 14px; font-size: 13px; color: var(--text-secondary); border-left: 3px solid var(--accent); margin-top: 14px; line-height: 1.7; }
+
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--bg-primary); border-radius: var(--radius-lg); padding: 24px; width: 380px; max-width: 95vw; border: 1px solid var(--border-mid); box-shadow: 0 8px 32px rgba(0,0,0,.18); }
+  .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .footer { text-align: center; margin-top: 40px; font-size: 12px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="topbar">
+    <div>
+      <div class="app-title"><i class="ti ti-building-bank"></i> 定存存單管理系統</div>
+      <div class="app-subtitle">銀行定存集中管理・到期提醒・利息試算・作業進度勾稽・匯出 Excel</div>
+    </div>
+    <div class="user-area">
+      <div id="userTabs"></div>
+      <button class="user-tab-add" onclick="openAddUser()"><i class="ti ti-plus"></i> 新增管理者</button>
+    </div>
+  </div>
+
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="section-tabs">
+    <button class="section-tab active" onclick="switchTab('list',this)">存單列表</button>
+    <button class="section-tab" onclick="switchTab('add',this)">新增存單</button>
+    <button class="section-tab" onclick="switchTab('chart',this)">統計圖表</button>
+    <button class="section-tab" onclick="switchTab('export',this)">匯出 Excel</button>
+  </div>
+
+  <!-- 列表 -->
+  <div id="tab-list">
+    <div class="filter-row">
+      <select id="filterBank" onchange="renderTable()"><option value="">所有銀行</option></select>
+      <select id="filterStatus" onchange="renderTable()">
+        <option value="">所有狀態</option>
+        <option value="ok">正常</option>
+        <option value="soon">即將到期（30天內）</option>
+        <option value="exp">已到期</option>
+      </select>
+      <select id="filterProg" onchange="renderTable()">
+        <option value="">所有進度</option>
+        <option value="incomplete">進度未完成</option>
+        <option value="complete">全部完成</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="搜尋帳號/備註..." oninput="renderTable()" style="min-width:140px;width:auto">
+      <span id="tableCount" style="font-size:13px;color:var(--text-tertiary)"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>銀行別</th>
+            <th>存單帳號</th>
+            <th>金額（元）</th>
+            <th>定存日</th>
+            <th>到期日</th>
+            <th>預計利息</th>
+            <th>倒數</th>
+            <th>狀態</th>
+            <th>作業進度</th>
+            <th>備註</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="depositTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 新增 -->
+  <div id="tab-add" style="display:none">
+    <div class="form-card">
+      <div style="font-size:15px;font-weight:500;margin-bottom:16px;color:var(--text-primary)">
+        <i class="ti ti-plus-circle" style="vertical-align:-2px;margin-right:6px;color:var(--accent)"></i>新增存單
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">銀行 *</label>
+          <select id="f_bank"><option value="">請選擇銀行</option></select></div>
+        <div class="form-group"><label class="form-label">存單帳號</label>
+          <input type="text" id="f_accno" placeholder="例：0123-456-789012"></div>
+        <div class="form-group"><label class="form-label">金額（元）*</label>
+          <input type="number" id="f_amount" placeholder="例：500000" min="0"></div>
+        <div class="form-group"><label class="form-label">年利率（%）*</label>
+          <input type="number" id="f_rate" placeholder="例：1.5" step="0.01" min="0"></div>
+        <div class="form-group"><label class="form-label">定存日期 *</label>
+          <input type="date" id="f_start"></div>
+        <div class="form-group"><label class="form-label">到期日期 *</label>
+          <input type="date" id="f_end"></div>
+        <div class="form-group"><label class="form-label">備註（選填）</label>
+          <input type="text" id="f_note" placeholder="例：退休金、子女教育金"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="addDeposit()"><i class="ti ti-plus"></i> 新增存單</button>
+        <span id="formMsg" style="font-size:13px"></span>
+      </div>
+    </div>
+    <div class="info-box">
+      <i class="ti ti-info-circle" style="vertical-align:-2px;margin-right:4px"></i>
+      預計利息採「單利」計算：金額 × 年利率 × （實際天數 ÷ 365）。新增後可在列表中點擊「作業進度」按鈕依序勾稽簽呈、傳票入帳、利息三個步驟。
+    </div>
+  </div>
+
+  <!-- 圖表 -->
+  <div id="tab-chart" style="display:none">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      <div class="chart-box">
+        <div class="chart-title"><i class="ti ti-chart-donut" style="vertical-align:-2px;margin-right:4px"></i>各銀行存款分佈</div>
+        <div style="position:relative;height:240px"><canvas id="bankChart"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title"><i class="ti ti-chart-bar" style="vertical-align:-2px;margin-right:4px"></i>到期月份分佈</div>
+        <div style="position:relative;height:240px"><canvas id="monthChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title"><i class="ti ti-checklist" style="vertical-align:-2px;margin-right:4px"></i>作業進度統計</div>
+      <div id="progStats" style="display:flex;gap:20px;flex-wrap:wrap;padding:8px 0"></div>
+    </div>
+  </div>
+
+  <!-- 匯出 -->
+  <div id="tab-export" style="display:none">
+    <div class="form-card">
+      <div style="font-size:15px;font-weight:500;margin-bottom:18px">
+        <i class="ti ti-file-spreadsheet" style="vertical-align:-2px;margin-right:6px;color:var(--green)"></i>匯出 Excel 設定
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:8px">匯出範圍</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label class="opt"><input type="radio" name="exportScope" value="current" checked> 目前管理者（<span id="exportScopeName"></span>）</label>
+            <label class="opt"><input type="radio" name="exportScope" value="all"> 所有管理者（每人一個工作表）</label>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:8px">包含欄位</div>
+          <div class="check-grid">
+            <label class="opt"><input type="checkbox" id="col_bank" checked> 銀行別</label>
+            <label class="opt"><input type="checkbox" id="col_accno" checked> 存單帳號</label>
+            <label class="opt"><input type="checkbox" id="col_amount" checked> 金額</label>
+            <label class="opt"><input type="checkbox" id="col_rate" checked> 年利率</label>
+            <label class="opt"><input type="checkbox" id="col_start" checked> 定存日期</label>
+            <label class="opt"><input type="checkbox" id="col_end" checked> 到期日期</label>
+            <label class="opt"><input type="checkbox" id="col_days" checked> 剩餘天數</label>
+            <label class="opt"><input type="checkbox" id="col_interest" checked> 預計利息</label>
+            <label class="opt"><input type="checkbox" id="col_status" checked> 狀態</label>
+            <label class="opt"><input type="checkbox" id="col_prog" checked> 作業進度（3欄）</label>
+            <label class="opt"><input type="checkbox" id="col_note" checked> 備註</label>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:6px">檔案名稱</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="text" id="exportFilename" value="定存存單" style="max-width:200px">
+            <span style="font-size:13px;color:var(--text-tertiary)">.xlsx</span>
+          </div>
+          <div style="margin-top:20px">
+            <button class="btn-export" id="exportBtn" onclick="doExport()">
+              <i class="ti ti-download"></i> 下載 Excel 檔案
+            </button>
+            <div id="exportMsg" style="font-size:13px;margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="info-box">
+      <i class="ti ti-info-circle" style="vertical-align:-2px;margin-right:4px"></i>
+      Excel 包含標題列（藍底白字）、交替底色、到期狀態色彩標示、作業進度（✓ / 空白）、金額千分位格式、合計列。
+      資料儲存於本機瀏覽器 localStorage，同一台電腦同一瀏覽器開啟即可保留資料，建議定期匯出 Excel 備份。
+    </div>
+  </div>
+
+  <div class="footer">定存存單管理系統 · 資料儲存於本機瀏覽器</div>
+</div>
+
+<!-- Modal: 新增管理者 -->
+<div class="modal-bg" id="addUserModal">
+  <div class="modal">
+    <h3><i class="ti ti-user-plus" style="vertical-align:-2px;margin-right:6px;color:var(--accent)"></i>新增管理者</h3>
+    <input type="text" id="newUserName" placeholder="輸入管理者名稱" maxlength="20"
+           onkeydown="if(event.key==='Enter')confirmAddUser()">
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="closeAddUser()">取消</button>
+      <button class="btn-primary" onclick="confirmAddUser()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BANKS = [
+  // 公股行庫
+  '台灣銀行','台灣土地銀行','合作金庫','第一銀行','華南銀行','彰化銀行','台灣企銀','兆豐銀行',
+  // 民營銀行（含冷門）
+  '玉山銀行','國泰世華','台北富邦','台中銀行','京城銀行','聯邦銀行','遠東銀行','元大銀行',
+  '永豐銀行','台新銀行','中信銀行','富邦銀行','凱基銀行','日盛銀行','安泰銀行','陽信銀行',
+  '三信銀行','板信商銀','華泰銀行','瑞興銀行','新光銀行','上海儲蓄銀行','高雄銀行',
+  '大眾銀行','台灣中小企業銀行','萬泰銀行','慶豐銀行',
+  // 外商銀行
+  '星展銀行','滙豐銀行','渣打銀行','花旗銀行','中國信託（外商）',
+  // 信用合作社
+  '台北市第一信用合作社','台北市第二信用合作社','彰化第一信用合作社',
+  // 郵局
+  '郵局（中華郵政）',
+  // 農漁會
+  '農會信用部','漁會信用部',
+  '其他'
+];
+
+const PROG_KEYS = ['shenCheng','chuanPiao','liXi'];
+const PROG_LABELS = { shenCheng:'簽呈', chuanPiao:'傳票入帳', liXi:'利息' };
+const PROG_ICONS  = { shenCheng:'ti-file-text', chuanPiao:'ti-receipt', liXi:'ti-coin' };
+const COLORS = ['#185FA5','#1D9E75','#BA7517','#993556','#534AB7','#993C1D','#639922','#D85A30','#0F6E56','#3C3489','#D4537E','#378ADD'];
+
+let state = { users:['我'], current:0, data:{'我':[]} };
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('fd_state_v3');
+    if (s) state = JSON.parse(s);
+  } catch(e) {}
+  // 舊資料補欄位
+  state.users.forEach(u => {
+    (state.data[u] || []).forEach(d => {
+      if (!d.accno) d.accno = '';
+      if (!d.prog)  d.prog  = { shenCheng:false, chuanPiao:false, liXi:false };
+    });
+  });
+  initUI();
+}
+function saveState() { localStorage.setItem('fd_state_v3', JSON.stringify(state)); }
+function currentUser()     { return state.users[state.current]; }
+function currentDeposits() { return state.data[currentUser()] || []; }
+
+function initUI() {
+  const sel = document.getElementById('f_bank');
+  sel.innerHTML = '<option value="">請選擇銀行</option>';
+  [...BANKS].sort((a,b) => a==='其他'?1:b==='其他'?-1:a.localeCompare(b,'zh-TW'))
+    .forEach(b => { const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
+  document.getElementById('f_start').value = new Date().toISOString().split('T')[0];
+  renderUserTabs(); renderStats(); renderTable(); renderFilterBanks(); updateExportScope();
+}
+
+function renderUserTabs() {
+  const c = document.getElementById('userTabs'); c.innerHTML = '';
+  state.users.forEach((u,i) => {
+    const b = document.createElement('button');
+    b.className = 'user-tab' + (i===state.current?' active':'');
+    b.textContent = u;
+    b.onclick = () => { state.current=i; saveState(); renderAll(); };
+    c.appendChild(b);
+  });
+}
+function renderAll() { renderUserTabs(); renderStats(); renderTable(); renderFilterBanks(); updateExportScope(); }
+
+function getDaysLeft(endDate) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((new Date(endDate) - now) / 86400000);
+}
+function getStatus(d) { const days=getDaysLeft(d.endDate); if(days<0)return 'exp'; if(days<=30)return 'soon'; return 'ok'; }
+function getStatusLabel(s) { return {ok:'正常',soon:'即將到期',exp:'已到期'}[s]||''; }
+function calcInterest(d) { const days=(new Date(d.endDate)-new Date(d.startDate))/86400000; return Math.round(d.amount*(d.rate/100)*(days/365)); }
+function isProgComplete(d) { return PROG_KEYS.every(k => d.prog && d.prog[k]); }
+
+function renderStats() {
+  const deps = currentDeposits();
+  const total    = deps.reduce((s,d)=>s+Number(d.amount), 0);
+  const interest = deps.reduce((s,d)=>s+calcInterest(d), 0);
+  const expiring = deps.filter(d=>getStatus(d)==='soon').length;
+  const expired  = deps.filter(d=>getStatus(d)==='exp').length;
+  const wavg = deps.length ? (deps.reduce((s,d)=>s+Number(d.rate)*Number(d.amount),0)/Math.max(total,1)).toFixed(2) : '0.00';
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">總存款金額</div><div class="stat-value">NT$${total.toLocaleString()}</div><div class="stat-sub">${deps.length} 筆存單</div></div>
+    <div class="stat-card"><div class="stat-label">預計總利息</div><div class="stat-value">NT$${interest.toLocaleString()}</div><div class="stat-sub">加權平均利率 ${wavg}%</div></div>
+    <div class="stat-card"><div class="stat-label">即將到期（30天）</div><div class="stat-value" style="color:#854F0B">${expiring}</div><div class="stat-sub">筆需注意</div></div>
+    <div class="stat-card"><div class="stat-label">已到期</div><div class="stat-value" style="color:#A32D2D">${expired}</div><div class="stat-sub">筆需處理</div></div>`;
+}
+
+function renderFilterBanks() {
+  const sel = document.getElementById('filterBank'); const cur = sel.value;
+  sel.innerHTML = '<option value="">所有銀行</option>';
+  [...new Set(currentDeposits().map(d=>d.bank))].sort().forEach(b => {
+    const o=document.createElement('option'); o.value=b; o.textContent=b; if(b===cur)o.selected=true; sel.appendChild(o);
+  });
+}
+
+function renderTable() {
+  const bankF   = document.getElementById('filterBank').value;
+  const statusF = document.getElementById('filterStatus').value;
+  const progF   = document.getElementById('filterProg').value;
+  const searchF = document.getElementById('filterSearch').value.toLowerCase();
+  const filtered = currentDeposits().filter(d => {
+    if (bankF   && d.bank!==bankF)            return false;
+    if (statusF && getStatus(d)!==statusF)    return false;
+    if (progF==='complete'   && !isProgComplete(d)) return false;
+    if (progF==='incomplete' &&  isProgComplete(d)) return false;
+    if (searchF && !((d.accno||'')+(d.note||'')).toLowerCase().includes(searchF)) return false;
+    return true;
+  });
+  document.getElementById('tableCount').textContent = `共 ${filtered.length} 筆`;
+  const tbody = document.getElementById('depositTable');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty"><i class="ti ti-inbox"></i> 尚無存單資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = [...filtered].sort((a,b)=>new Date(a.endDate)-new Date(b.endDate)).map(d => {
+    const days = getDaysLeft(d.endDate); const st = getStatus(d);
+    const badge = `<span class="badge badge-${st}">${getStatusLabel(st)}</span>`;
+    const daysStr = days<0 ? `逾期${Math.abs(days)}天` : `${days}天`;
+    const daysColor = days<0 ? '#A32D2D' : days<=30 ? '#854F0B' : 'var(--text-tertiary)';
+    const progHtml = PROG_KEYS.map(k => {
+      const done = d.prog && d.prog[k];
+      return `<button class="prog-item ${done?'done':'undone'}" onclick="toggleProg('${d.id}','${k}')" title="${done?'點擊取消':'點擊標記完成'}">
+        <i class="ti ${done?'ti-circle-check':PROG_ICONS[k]}"></i>${PROG_LABELS[k]}</button>`;
+    }).join('');
+    return `<tr>
+      <td style="font-weight:500;white-space:nowrap">${d.bank}</td>
+      <td style="font-size:12px;color:var(--text-secondary)">${d.accno||'—'}</td>
+      <td>${Number(d.amount).toLocaleString()}</td>
+      <td style="white-space:nowrap">${d.startDate}</td>
+      <td style="white-space:nowrap">${d.endDate}</td>
+      <td>${calcInterest(d).toLocaleString()}</td>
+      <td style="font-size:12px;color:${daysColor};white-space:nowrap">${daysStr}</td>
+      <td>${badge}</td>
+      <td><div class="prog-cell">${progHtml}</div></td>
+      <td style="font-size:12px;color:var(--text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.note||''}">${d.note||''}</td>
+      <td><button class="del-btn" onclick="deleteDeposit('${d.id}')" title="刪除"><i class="ti ti-trash"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleProg(id, key) {
+  const user = currentUser();
+  const dep = (state.data[user]||[]).find(d=>d.id===id);
+  if (!dep) return;
+  if (!dep.prog) dep.prog = { shenCheng:false, chuanPiao:false, liXi:false };
+  dep.prog[key] = !dep.prog[key];
+  saveState(); renderTable(); renderStats();
+}
+
+function addDeposit() {
+  const bank   = document.getElementById('f_bank').value;
+  const accno  = document.getElementById('f_accno').value.trim();
+  const amount = Number(document.getElementById('f_amount').value);
+  const rate   = Number(document.getElementById('f_rate').value);
+  const start  = document.getElementById('f_start').value;
+  const end    = document.getElementById('f_end').value;
+  const note   = document.getElementById('f_note').value.trim();
+  const msg    = document.getElementById('formMsg');
+  if (!bank||!amount||!rate||!start||!end) { msg.style.color='#A32D2D'; msg.textContent='請填寫所有必填欄位（*）'; return; }
+  if (new Date(end) <= new Date(start))    { msg.style.color='#A32D2D'; msg.textContent='到期日須晚於定存日'; return; }
+  const dep = { id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), bank, accno, amount, rate, startDate:start, endDate:end, note, prog:{shenCheng:false,chuanPiao:false,liXi:false} };
+  const user = currentUser();
+  if (!state.data[user]) state.data[user] = [];
+  state.data[user].push(dep); saveState();
+  ['f_accno','f_amount','f_rate','f_end','f_note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f_bank').value = '';
+  msg.style.color='#3B6D11'; msg.textContent='✓ 存單已新增！';
+  setTimeout(()=>msg.textContent='', 2500);
+  renderFilterBanks(); renderStats();
+}
+
+function deleteDeposit(id) {
+  if (!confirm('確定要刪除這筆存單？')) return;
+  const user = currentUser();
+  state.data[user] = (state.data[user]||[]).filter(d=>d.id!==id);
+  saveState(); renderAll();
+}
+
+function switchTab(name, el) {
+  ['list','add','chart','export'].forEach(t => { document.getElementById('tab-'+t).style.display = t===name?'':'none'; });
+  document.querySelectorAll('.section-tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  if (name==='chart')  renderCharts();
+  if (name==='export') updateExportScope();
+}
+
+let bankChartInst=null, monthChartInst=null;
+function renderCharts() {
+  const deps = currentDeposits();
+  // Bank doughnut
+  const bankMap={};
+  deps.forEach(d=>{ bankMap[d.bank]=(bankMap[d.bank]||0)+Number(d.amount); });
+  const bLabels=Object.keys(bankMap), bData=Object.values(bankMap);
+  const bCtx=document.getElementById('bankChart').getContext('2d');
+  if (bankChartInst) bankChartInst.destroy();
+  bankChartInst = new Chart(bCtx,{type:'doughnut',data:{labels:bLabels,datasets:[{data:bData,backgroundColor:COLORS.slice(0,bLabels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:10,padding:8}}}}});
+  // Month bar
+  const mMap={};
+  deps.forEach(d=>{ const m=d.endDate.slice(0,7); mMap[m]=(mMap[m]||0)+Number(d.amount); });
+  const mKeys=Object.keys(mMap).sort().slice(-12);
+  const mCtx=document.getElementById('monthChart').getContext('2d');
+  if (monthChartInst) monthChartInst.destroy();
+  monthChartInst = new Chart(mCtx,{type:'bar',data:{labels:mKeys,datasets:[{label:'到期金額',data:mKeys.map(k=>mMap[k]),backgroundColor:'#185FA5',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,maxRotation:45,font:{size:10}}},y:{ticks:{callback:v=>'$'+(v/10000).toFixed(0)+'萬',font:{size:10}}}}}});
+  // Progress stats
+  const el = document.getElementById('progStats');
+  const total = deps.length;
+  el.innerHTML = PROG_KEYS.map(k => {
+    const done = deps.filter(d=>d.prog&&d.prog[k]).length;
+    const pct  = total ? Math.round(done/total*100) : 0;
+    return `<div style="flex:1;min-width:140px;background:var(--bg-secondary);border-radius:8px;padding:12px 14px">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">${PROG_LABELS[k]}</div>
+      <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${done}<span style="font-size:13px;color:var(--text-tertiary);font-weight:400"> / ${total}</span></div>
+      <div style="margin-top:6px;background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:#1D9E75;border-radius:4px;transition:width .3s"></div></div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">${pct}% 已完成</div>
+    </div>`;
+  }).join('');
+}
+
+function updateExportScope() { const el=document.getElementById('exportScopeName'); if(el) el.textContent=currentUser(); }
+
+function buildSheetData(deposits) {
+  const chk = id => document.getElementById(id).checked;
+  const cols = [];
+  if(chk('col_bank'))     cols.push({key:'bank',      label:'銀行別'});
+  if(chk('col_accno'))    cols.push({key:'accno',     label:'存單帳號'});
+  if(chk('col_amount'))   cols.push({key:'amount',    label:'金額（元）'});
+  if(chk('col_rate'))     cols.push({key:'rate',      label:'年利率（%）'});
+  if(chk('col_start'))    cols.push({key:'startDate', label:'定存日期'});
+  if(chk('col_end'))      cols.push({key:'endDate',   label:'到期日期'});
+  if(chk('col_days'))     cols.push({key:'days',      label:'剩餘天數'});
+  if(chk('col_interest')) cols.push({key:'interest',  label:'預計利息（元）'});
+  if(chk('col_status'))   cols.push({key:'status',    label:'狀態'});
+  if(chk('col_prog'))     cols.push({key:'shenCheng',label:'簽呈'},{key:'chuanPiao',label:'傳票入帳'},{key:'liXi',label:'利息'});
+  if(chk('col_note'))     cols.push({key:'note',      label:'備註'});
+  if (!cols.length) { alert('請至少選擇一個欄位'); return null; }
+  const rows = [cols.map(c=>c.label)];
+  const sorted = [...deposits].sort((a,b)=>new Date(a.endDate)-new Date(b.endDate));
+  sorted.forEach(d => {
+    const days = getDaysLeft(d.endDate);
+    rows.push(cols.map(c => {
+      if(c.key==='amount')    return Number(d.amount);
+      if(c.key==='rate')      return Number(d.rate);
+      if(c.key==='days')      return days;
+      if(c.key==='interest')  return calcInterest(d);
+      if(c.key==='status')    return getStatusLabel(getStatus(d));
+      if(c.key==='shenCheng') return d.prog&&d.prog.shenCheng?'✓':'';
+      if(c.key==='chuanPiao') return d.prog&&d.prog.chuanPiao?'✓':'';
+      if(c.key==='liXi')      return d.prog&&d.prog.liXi?'✓':'';
+      return d[c.key]||'';
+    }));
+  });
+  if (deposits.length > 0) {
+    rows.push(cols.map(c => {
+      if(c.key==='bank')     return '【合計】';
+      if(c.key==='amount')   return deposits.reduce((s,d)=>s+Number(d.amount),0);
+      if(c.key==='interest') return deposits.reduce((s,d)=>s+calcInterest(d),0);
+      return '';
+    }));
+  }
+  return { rows, cols };
+}
+
+function applyStyle(ws, rowCount, colCount, cols) {
+  for(let c=0;c<colCount;c++){
+    const addr=XLSX.utils.encode_cell({r:0,c}); if(!ws[addr])continue;
+    ws[addr].s={fill:{patternType:'solid',fgColor:{rgb:'185FA5'}},font:{bold:true,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center'}};
+  }
+  const stIdx = cols.findIndex(c=>c.key==='status');
+  for(let r=1;r<rowCount-1;r++){
+    const stVal = stIdx>=0&&ws[XLSX.utils.encode_cell({r,c:stIdx})] ? ws[XLSX.utils.encode_cell({r,c:stIdx})].v : '';
+    let fill = r%2===0?'F5F5F3':'FFFFFF';
+    if(stVal==='已到期') fill='FCEBEB'; else if(stVal==='即將到期') fill='FAEEDA';
+    for(let c=0;c<colCount;c++){const addr=XLSX.utils.encode_cell({r,c});if(!ws[addr])continue;ws[addr].s={fill:{patternType:'solid',fgColor:{rgb:fill}}};}
+  }
+  const tr=rowCount-1;
+  for(let c=0;c<colCount;c++){const addr=XLSX.utils.encode_cell({r:tr,c});if(!ws[addr])continue;ws[addr].s={fill:{patternType:'solid',fgColor:{rgb:'EAF3DE'}},font:{bold:true,color:{rgb:'3B6D11'}}};}
+  [cols.findIndex(c=>c.key==='amount'),cols.findIndex(c=>c.key==='interest')].forEach(ci=>{
+    if(ci<0)return;
+    for(let r=1;r<rowCount;r++){const addr=XLSX.utils.encode_cell({r,c:ci});if(ws[addr]&&typeof ws[addr].v==='number')ws[addr].z='#,##0';}
+  });
+  ws['!cols'] = Array.from({length:colCount},(_,i)=>({wch:i===0?18:14}));
+}
+
+function doExport() {
+  const btn=document.getElementById('exportBtn'), msg=document.getElementById('exportMsg');
+  const scope    = document.querySelector('input[name=exportScope]:checked').value;
+  const filename = (document.getElementById('exportFilename').value.trim()||'定存存單') + '.xlsx';
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 產生中...'; msg.textContent='';
+  setTimeout(()=>{
+    try {
+      const wb = XLSX.utils.book_new();
+      const targets = scope==='all' ? state.users : [currentUser()];
+      targets.forEach(user => {
+        const deps = state.data[user]||[];
+        const result = buildSheetData(deps); if(!result)return;
+        const {rows,cols} = result;
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        applyStyle(ws, rows.length, rows[0].length, cols);
+        XLSX.utils.book_append_sheet(wb, ws, user.slice(0,31));
+      });
+      XLSX.writeFile(wb, filename);
+      msg.style.color='#3B6D11'; msg.textContent=`✓ 已下載 ${filename}`;
+    } catch(e) { msg.style.color='#A32D2D'; msg.textContent='匯出失敗：'+e.message; }
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-download"></i> 下載 Excel 檔案';
+  },100);
+}
+
+function openAddUser()    { document.getElementById('addUserModal').classList.add('open'); document.getElementById('newUserName').value=''; setTimeout(()=>document.getElementById('newUserName').focus(),50); }
+function closeAddUser()   { document.getElementById('addUserModal').classList.remove('open'); }
+function confirmAddUser() {
+  const name = document.getElementById('newUserName').value.trim();
+  if (!name) return;
+  if (state.users.includes(name)) { alert('此名稱已存在'); return; }
+  state.users.push(name); if(!state.data[name])state.data[name]=[];
+  state.current=state.users.length-1; saveState(); closeAddUser(); renderAll();
+}
+document.getElementById('addUserModal').addEventListener('click',function(e){if(e.target===this)closeAddUser();});
+
+loadState();
+</script>
+</body>
+</html>
